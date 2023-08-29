@@ -1,0 +1,215 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.UI;
+
+
+public class SelectObjects : MonoBehaviour
+{
+	private RaycastHit hit;
+	public static List<GameObject> unit; // массив всех юнитов, которых мы можем выделить
+	public static List<GameObject> unitSelected; // массив выделенных юнитов
+
+	private GUISkin skin;
+	private Rect rect;
+	private bool draw;
+	private Vector2 startPos;
+	private Vector2 endPos;
+
+	private Touch theTouch;
+	private bool toAttack = true;
+	private bool move = false;
+
+	public bool mauseControl;
+
+	void Update()
+	{
+		if (move)
+		{
+			unit = SpawnerOwn.unitList;
+		}
+		if (draw & mauseControl)
+		{
+			unit = SpawnerOwn.unitList;
+		}
+	}
+
+	void Awake()
+	{
+		unitSelected = new List<GameObject>();
+		if (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer)//************************************************
+		{
+			mauseControl = false;
+		}
+		else
+		{
+			mauseControl = true;
+		}
+	}
+
+	// проверка, добавлен объект или нет
+	bool CheckUnit(GameObject unit)
+	{
+		bool result = false;
+		foreach (GameObject u in unitSelected)
+		{
+			if (u == unit) result = true;
+		}
+		return result;
+	}
+
+	void Select()
+	{
+		if (unitSelected.Count > 0)
+		{
+			for (int j = 0; j < unitSelected.Count; j++)
+			{
+				unitSelected[j].tag = "MyShipSelected";
+				unitSelected[j].transform.Find("Halo").gameObject.SetActive(true);
+			}
+		}
+	}
+
+	void Deselect()
+	{
+		if (unitSelected.Count > 0)
+		{
+			for (int j = 0; j < unitSelected.Count; j++)
+			{
+				unitSelected[j].tag = "MyShip";
+				unitSelected[j].transform.Find("Halo").gameObject.SetActive(false);
+			}
+		}
+	}
+
+	void OnGUI()
+	{
+		if (!mauseControl)
+        {
+			if (Input.touchCount == 1)
+			{
+				GUI.skin = skin;
+				GUI.depth = 99;
+				theTouch = Input.GetTouch(0);
+				if (theTouch.phase == TouchPhase.Began)
+				{
+					startPos = theTouch.position;
+					toAttack = true;
+				}
+				if (theTouch.phase == TouchPhase.Moved || theTouch.phase == TouchPhase.Stationary)
+				{
+					if (theTouch.phase == TouchPhase.Moved)
+					{
+
+						if (Vector2.Distance(startPos, theTouch.position) > 2)
+						{
+							move = true;
+						}
+					}
+					if (move)
+					{
+						Deselect();
+						draw = true;
+						toAttack = false;
+						if (draw)
+						{
+							unitSelected.Clear();
+							endPos = theTouch.position;
+							if (startPos == endPos) return;
+
+							rect = new Rect(Mathf.Min(endPos.x, startPos.x),
+											Screen.height - Mathf.Max(endPos.y, startPos.y),
+											Mathf.Max(endPos.x, startPos.x) - Mathf.Min(endPos.x, startPos.x),
+											Mathf.Max(endPos.y, startPos.y) - Mathf.Min(endPos.y, startPos.y)
+											);
+
+							GUI.Box(rect, "");
+
+							for (int j = 0; j < unit.Count; j++)
+							{
+								// трансформируем позицию объекта из мирового пространства, в пространство экрана
+								Vector2 tmp = new Vector2(Camera.main.WorldToScreenPoint(unit[j].transform.position).x, Screen.height - Camera.main.WorldToScreenPoint(unit[j].transform.position).y);
+
+								if (rect.Contains(tmp)) // проверка, находится-ли текущий объект в рамке
+								{
+									if (unitSelected.Count == 0)
+									{
+										unitSelected.Add(unit[j]);
+									}
+									else if (!CheckUnit(unit[j]))
+									{
+										unitSelected.Add(unit[j]);
+									}
+								}
+							}
+						}
+					}
+				}
+				if (theTouch.phase == TouchPhase.Ended)
+				{
+					if (toAttack)
+					{
+						Invoke("Deselect", 0.1f);
+					}
+					else
+					{
+						draw = false;
+						move = false;
+						Invoke("Select", 0.1f);
+					}
+				}
+			}
+		}
+		else
+        {
+			if (Input.GetMouseButtonDown(0))
+			{
+				Deselect();
+				draw = true;
+				startPos = Input.mousePosition;
+			}
+			if (Input.GetMouseButton(0))
+			{
+				endPos = Input.mousePosition;
+				unitSelected.Clear();
+				if (startPos == endPos) return;
+
+				rect = new Rect(Mathf.Min(endPos.x, startPos.x),
+								Screen.height - Mathf.Max(endPos.y, startPos.y),
+								Mathf.Max(endPos.x, startPos.x) - Mathf.Min(endPos.x, startPos.x),
+								Mathf.Max(endPos.y, startPos.y) - Mathf.Min(endPos.y, startPos.y)
+								);
+
+				GUI.Box(rect, "");
+
+				for (int j = 0; j < unit.Count; j++)
+				{
+					// трансформируем позицию объекта из мирового пространства, в пространство экрана
+					Vector2 tmp = new Vector2(Camera.main.WorldToScreenPoint(unit[j].transform.position).x, Screen.height - Camera.main.WorldToScreenPoint(unit[j].transform.position).y);
+
+					if (rect.Contains(tmp)) // проверка, находится-ли текущий объект в рамке
+					{
+						if (unitSelected.Count == 0)
+						{
+							unitSelected.Add(unit[j]);
+						}
+						else if (!CheckUnit(unit[j]))
+						{
+							unitSelected.Add(unit[j]);
+						}
+					}
+				}
+			}
+			if (Input.GetMouseButtonDown(1))
+			{
+				Invoke("Deselect", 0.1f);
+				draw = false;
+			}
+			if (Input.GetMouseButtonUp(0))
+			{
+				draw = false;
+				Invoke("Select", 0.1f);
+			}
+		}
+	}
+}
