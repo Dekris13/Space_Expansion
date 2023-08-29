@@ -1,0 +1,209 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class Main_camera_zoom : MonoBehaviour
+{
+    private Touch theTouch1;
+    private Touch theTouch2;
+
+    private float distBetwinTouchesStart;
+    private float distBetwinTouchesFinish;
+
+    private RaycastHit hit;
+    private Vector3 touchPosStartV1;
+    private Vector3 touchPosStartV2;
+    private Vector3 touchPosFinishV1;
+    private Vector3 touchPosFinishV2;
+    private Vector3 touchPosStartMiddelV;
+    private Vector3 touchPosFinishMiddelV;
+    private float distBetwinTouchesXV3;
+    private float distBetwinTouchesZV3;
+
+    public Vector3 posCam;
+    private Vector3 posF;
+    private bool zoom = false;
+    private bool zoomGui = false;
+
+    private int layerMask = (1 << 8);
+    private bool beginZoom;
+
+    public bool mauseControl;
+    public float wheel_speed = 30;
+    public Vector3 startPos;
+    public Vector3 endPos;
+    public float speedCam = 1;
+
+    void Start()
+    {
+        if (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer)
+        {
+            mauseControl = false;
+        }
+        else
+        {
+            mauseControl = true;
+        }
+        posCam = transform.position;
+        GameObject myPlanet = Camera.main.GetComponent<II_main_camera>().myPlanetList[0];
+        posF = myPlanet.transform.position;
+        posF.y = 100;
+        Invoke("ZoomStart", 1f);
+    }
+
+    void Update()
+    {
+        if (zoom)
+        {
+            if (Vector3.Distance(transform.position, posF) > 1)
+            {
+                transform.position = Vector3.MoveTowards(transform.position, posF, 5);
+                Camera.main.orthographicSize -= 1.5f;
+                posCam = transform.position;
+            }
+            if (Vector3.Distance(transform.position, posF) < 1)
+            {
+                zoom = false;
+                zoomGui = true;
+                Time.timeScale = 1;
+            }
+        }
+
+        if (zoomGui)
+        {
+            if (!mauseControl)
+            {
+                if (Input.touchCount == 2)
+                {
+                    theTouch1 = Input.GetTouch(0);
+                    theTouch2 = Input.GetTouch(1);
+
+                    if (theTouch1.phase == TouchPhase.Began & theTouch2.phase == TouchPhase.Began)
+                    {
+                        beginZoom = true;
+                        var ray1 = Camera.main.ScreenPointToRay(theTouch1.position);
+                        if (Physics.Raycast(ray1, out hit, 10000, layerMask))
+                        {
+                            touchPosStartV1 = hit.point;
+                        }
+                        var ray2 = Camera.main.ScreenPointToRay(theTouch2.position);
+                        if (Physics.Raycast(ray2, out hit, 10000, layerMask))
+                        {
+                            touchPosStartV2 = hit.point;
+                        }
+                        touchPosStartMiddelV.x = (touchPosStartV1.x + touchPosStartV2.x) / 2;
+                        touchPosStartMiddelV.z = (touchPosStartV1.z + touchPosStartV2.z) / 2;
+
+                        touchPosFinishV1 = touchPosStartV1;
+                        touchPosFinishV2 = touchPosStartV2;
+                    }
+
+                    distBetwinTouchesStart = Vector3.Distance(touchPosStartV1, touchPosStartV2);
+
+                    if (theTouch1.phase == TouchPhase.Moved & theTouch2.phase == TouchPhase.Moved & beginZoom || theTouch1.phase == TouchPhase.Ended & theTouch2.phase == TouchPhase.Ended & beginZoom)
+                    {
+                        var ray1 = Camera.main.ScreenPointToRay(theTouch1.position);
+                        if (Physics.Raycast(ray1, out hit, 10000, layerMask))
+                        {
+                            touchPosFinishV1 = hit.point;
+                        }
+                        var ray2 = Camera.main.ScreenPointToRay(theTouch2.position);
+                        if (Physics.Raycast(ray2, out hit, 10000, layerMask))
+                        {
+                            touchPosFinishV2 = hit.point;
+                        }
+                        touchPosFinishMiddelV.x = (touchPosFinishV1.x + touchPosFinishV2.x) / 2;
+                        touchPosFinishMiddelV.z = (touchPosFinishV1.z + touchPosFinishV2.z) / 2;
+
+                        distBetwinTouchesXV3 = touchPosStartMiddelV.x - touchPosFinishMiddelV.x;
+                        distBetwinTouchesZV3 = touchPosStartMiddelV.z - touchPosFinishMiddelV.z;
+
+                        posCam.x += distBetwinTouchesXV3;
+                        if (posCam.x > 500)
+                        {
+                            posCam.x = 499;
+                        }
+                        if (posCam.x < -500)
+                        {
+                            posCam.x = -499;
+                        }
+
+                        posCam.z += distBetwinTouchesZV3;
+                        if (posCam.z > 500)
+                        {
+                            posCam.z = 499;
+                        }
+                        if (posCam.z < -500)
+                        {
+                            posCam.z = -499;
+                        }
+
+                        this.transform.position = posCam;
+
+                        /////////////////////////////////////////// ZOOM //////////////////////////////////
+
+                        distBetwinTouchesFinish = Vector3.Distance(touchPosFinishV1, touchPosFinishV2);
+
+                        float deltaDistBetwinTouches = distBetwinTouchesStart - distBetwinTouchesFinish;
+                        float orthographicSizeFinish = Camera.main.orthographicSize += deltaDistBetwinTouches;
+
+                        if (Camera.main.orthographicSize <= 1500)
+                        {
+                            Camera.main.orthographicSize = Mathf.Lerp(Camera.main.orthographicSize, orthographicSizeFinish, 0.05f);
+                        }
+                        else
+                        {
+                            Camera.main.orthographicSize = 1495;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                /////////////////////////////////////////// ZOOM //////////////////////////////////
+                if (Input.GetAxis("Mouse ScrollWheel") != 0)
+                {
+                    if (Camera.main.orthographicSize <= 1500)
+                    {
+                        float orthographicSizeFinish = - Camera.main.orthographicSize * Input.GetAxis("Mouse ScrollWheel") * wheel_speed;
+                        Camera.main.orthographicSize = Mathf.Lerp(Camera.main.orthographicSize, orthographicSizeFinish, 0.05f);
+                    }
+                    if (Camera.main.orthographicSize >= 1500)
+                    {
+                        Camera.main.orthographicSize = 1500;
+                    }
+                    if (Camera.main.orthographicSize <= 100)
+                    {
+                        Camera.main.orthographicSize = 100;
+                    }
+                }
+
+                if (Input.GetMouseButtonDown(2))
+                {
+                    var ray1 = Camera.main.ScreenPointToRay(Input.mousePosition);
+                    if (Physics.Raycast(ray1, out hit, 10000, layerMask))
+                    {
+                        startPos = hit.point;
+                    }
+                }
+                if (Input.GetMouseButton(2))
+                {
+                    var ray1 = Camera.main.ScreenPointToRay(Input.mousePosition);
+                    if (Physics.Raycast(ray1, out hit, 10000, layerMask))
+                    {
+                        endPos = hit.point;
+                    }
+                    Vector3 dir = endPos - startPos;
+                    dir = dir.normalized;
+                    this.transform.position = transform.position + dir * speedCam;
+                }
+            }  
+        }  
+    }
+
+    void ZoomStart()
+    {
+        zoom = true;
+    }
+}
